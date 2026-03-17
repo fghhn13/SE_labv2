@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minimal-structure-lab"
+version = "0.1.0"
+description = "Personal research lab for minimal emergent structure exploration in 2D shortest-path tasks."
+authors = [{ name = "FGHN" }]
+requires-python = ">=3.10"
+dependencies = [
+    # core Python only for now; add numpy/matplotlib etc. when needed
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["lab_v2"]
+

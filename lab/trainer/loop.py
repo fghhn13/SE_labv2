@@ -37,9 +37,12 @@ class Trainer:
         self.structure = structure
         self.callbacks = callbacks or []
         self.max_steps = max_steps
+        # 允许从某个 episode 索引开始，用于简单的断点续训（基于日志的续跑）
+        self.start_episode: int = 0
 
     def run(self, num_episodes: int) -> None:
-        for ep in range(num_episodes):
+        for local_ep in range(num_episodes):
+            ep = self.start_episode + local_ep
             state = self.env.reset()
             self.agent.reset()
 

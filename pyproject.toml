@@ -16,7 +16,11 @@ dependencies = [
 dev = [
     "pytest",
 ]
+viz = [
+    "matplotlib",
+    "pandas",
+]
 
 [tool.setuptools.packages.find]
-where = ["lab_v2"]
+where = ["lab"]
 

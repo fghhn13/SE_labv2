@@ -1,0 +1,22 @@
+{
+  "env": {
+    "name": "grid_basic",
+    "map_name": "open_5x5"
+  },
+  "agent": {
+    "name": "greedy",
+    "seed": 42,
+    "epsilon": 0.1
+  },
+  "structure": {
+    "name": "basic_recorder"
+  },
+  "trainer": {
+    "episodes": 20,
+    "max_steps": 50
+  },
+  "logging": {
+    "csv_path": "lab_v2_results/basic_grid_shortest_path.csv"
+  }
+}
+

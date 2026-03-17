@@ -29,3 +29,7 @@ logs/
 outputs/
 runs/
 
+# Experiment results (generated artifacts)
+lab_v2_results/
+
+

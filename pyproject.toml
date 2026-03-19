@@ -18,7 +18,9 @@ dev = [
 ]
 viz = [
     "matplotlib",
+    "networkx",
     "pandas",
+    "python-louvain",
 ]
 
 [tool.setuptools.packages.find]

@@ -33,6 +33,7 @@ runs/
 
 # Experiment results (generated artifacts)
 lab_v2_results/
+experiment_logs/
 
 # Raw events / intermediate artifacts (high frequency)
 *.jsonl
@@ -47,5 +48,6 @@ lab/agents/greedy_agent.py
 # Only keep a single example map for reference; ignore the rest.
 maps/*
 !maps/level_01_trap_maze.map
+maps/test_maps/
 
 

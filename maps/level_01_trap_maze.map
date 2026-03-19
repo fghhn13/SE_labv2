@@ -1,0 +1,13 @@
+[Metadata]
+name = trap_maze_01
+width = 7
+height = 5
+description = A simple maze with traps for risk emergence test.
+
+[Sandbox]
+# # # # # # #
+# S . . x . #
+# . # # . . #
+# . . . x G #
+# # # # # # #
+

@@ -24,7 +24,11 @@
 ### 当前状态
 
 - **已实现（v0 实验骨架）**：
-  - `GridWorldEnvironment`：支持任意 `GridMap`（起点、终点、墙），4 邻接动作与最短路径任务。
+  - `GridWorldEnvironment`：支持基于 `Element` 的网格地图（起点 `S`、终点 `G`、墙 `#`、陷阱 `x` 等）。
+    - 物理裁判仅依赖 `Element.is_passable()` 与 `Element.interact()`。
+    - Immediate Termination：`done` 来自元素交互返回的 `terminal`。
+    - 元素交互的成功标记写入 `step_result.info["success"]`（Trap => false，Goal => true）。
+    - 为保持轻量兼容，当前环境返回的 `StepResult.reward` 为占位值（物理层暂不计算 reward）。
   - `RandomAgent` / `GreedyAgent`：随机策略与基于曼哈顿距离的贪心策略（支持 `epsilon` 探索）。
   - `Trainer`：episode 循环控制，支持按 episode 数的断点续训。
   - `BasicRecordingStructure`：记录每个 episode 的完整路径和结果，方便后续结构分析。
@@ -37,8 +41,13 @@
     - `lab.cli.run_and_plot`：一键“训练 + 画图”（兼容 `run_experiment` 的配置）。
   - 实验配置与结果组织：
     - `experiments/<agent_name>/*.json`：按 Agent 名称组织实验配置。
-    - 地图通过 `env.map_name` 指定，所有 `GridMap` 统一在 `lab.envs.grid.maps` 中注册。
+    - 地图通过 `env.map_name` 指定：
+      - 内置地图在 `lab.envs.grid.maps` 中注册；
+      - `maps/*.map` 会在运行时被自动注册。
+      - `.map` 采用 `[Metadata]` + `[Sandbox]` 两段式，Sandbox 由元素符号构建。
     - 结果自动归档到 `lab_v2_results/<agent_name>/<map_name>/...`。
+  - 调试辅助（外挂 GUI）：
+    - `lab/scripts/manual_play.py`：用 tkinter 手动操作环境，用于验证终止与 `info` 语义。
 - **规划中（后续工作）**：
   - 更丰富的地图生成器（如 corridor / maze）与可达性检查。
   - 更复杂的 Agent（结构感知 / 学习型）。
@@ -145,6 +154,13 @@ pip install -e ".[viz]"    # 如需画图（matplotlib + pandas）
 python -m lab.cli.run_experiment experiments/random/basic_grid_open_5x5.json
 ```
 
+- **手动操控 GUI（用于调试终止与元素交互语义）**
+
+示例（使用仓库 `maps/` 下新增的示例地图）：
+```bash
+python -m lab.scripts.manual_play --map-name level_01_trap_maze
+```
+
 - **运行 Greedy Agent 与 10×10 随机障碍示例**
 
 ```bash
@@ -162,7 +178,7 @@ python -m lab.cli.run_experiment experiments/greedy/basic_grid_10x10_random_bloc
 
 其中包括：
 
-- `*.csv`：每 episode 的成功 / 步数 / cost；
+- `*.csv`：每 episode 的成功 / 步数 / cost（当前物理层 reward 已剔除，`cost` 可能是占位值；建议优先看 `steps` 与 `success`）；
 - `maps/*.png`：代表性路径图（最频繁 / 最好 / 最坏）；
 - `plots/*.png`：训练曲线（成功率 / 步数 / cost）。
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Dict, Optional
 
 from .grid_map import GridMap, Coord
+from .map_file_parser import parse_gridmap_file
 
 
 MapBuilder = Callable[[], GridMap]
@@ -70,5 +71,49 @@ def register_builtin_maps() -> None:
     register_map("open_5x5", _make_open_5x5)
     # 随机障碍地图示例：生成函数在 get_map 时调用
     register_map("random_blocks_10x10", lambda: _make_random_blocks_10x10())
+
+    # Auto-register user-defined `.map` files from the repo `maps/` directory.
+    _register_maps_from_default_dir()
+
+
+def register_map_file(name: str, map_path: str | Path) -> None:
+    """
+    Register a single `.map` file by name.
+    """
+    p = Path(map_path)
+    if not p.exists():
+        raise FileNotFoundError(str(p))
+
+    def builder(path: Path = p) -> GridMap:
+        return parse_gridmap_file(path)
+
+    register_map(name, builder)
+
+
+def _register_maps_from_default_dir() -> None:
+    """
+    Try to locate `<repo_root>/maps/*.map` and register them.
+    """
+    # Candidate 1: current working directory.
+    candidates = [Path.cwd() / "maps"]
+
+    # Candidate 2+: walk upwards from this file to find the first `maps/` folder.
+    this_file = Path(__file__).resolve()
+    for parent in this_file.parents:
+        candidates.append(parent / "maps")
+
+    for d in candidates:
+        if not d.exists() or not d.is_dir():
+            continue
+
+        for p in sorted(d.glob("*.map")):
+            name = p.stem
+            if name in _MAP_REGISTRY:
+                continue
+            register_map(
+                name,
+                lambda path=p: parse_gridmap_file(path),
+            )
+        break
 
 

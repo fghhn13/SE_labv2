@@ -32,4 +32,9 @@ runs/
 # Experiment results (generated artifacts)
 lab_v2_results/
 
+# Map files:
+# Only keep a single example map for reference; ignore the rest.
+maps/*
+!maps/level_01_trap_maze.map
+
 

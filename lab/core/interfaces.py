@@ -36,19 +36,3 @@ class Agent(Protocol):
     def end_episode(self, result: EpisodeResult) -> None:
         ...
 
-
-class StructureService(Protocol):
-    """
-    Interface that hides memory / macro / discovery / forgetting details.
-    """
-
-    def on_episode_end(self, result: EpisodeResult, env: Environment) -> None:
-        ...
-
-    def query(self, state: State):
-        """
-        Return any structure-related suggestion for a given state.
-        The concrete return type is intentionally left open.
-        """
-        ...
-

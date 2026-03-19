@@ -1,53 +1,29 @@
-from typing import List, Optional
-
-from lab.core.interfaces import Environment, Agent, StructureService
+from lab.core.interfaces import Agent, Environment
 from lab.core.types import EpisodeResult
-
-
-class TrainerCallback:
-    """
-    Simple callback interface for logging / metrics / visualization hooks.
-    """
-
-    def on_episode_end(
-        self,
-        episode_idx: int,
-        result: EpisodeResult,
-        structure: Optional[StructureService],
-    ) -> None:
-        ...
 
 
 class Trainer:
     """
-    Controls the episode loop.
-    Agents focus on step-level decisions; StructureService handles structure updates.
+    Barebones trainer:
+    - no reward/cost accumulation
+    - no callbacks
+    - no structure/recording calls
+
+    Purely dispatches env-agent interaction and prints a minimal per-episode summary.
     """
 
-    def __init__(
-        self,
-        env: Environment,
-        agent: Agent,
-        structure: Optional[StructureService] = None,
-        callbacks: Optional[List[TrainerCallback]] = None,
-        max_steps: int = 100,
-    ) -> None:
+    def __init__(self, env: Environment, agent: Agent, max_steps: int = 100) -> None:
         self.env = env
         self.agent = agent
-        self.structure = structure
-        self.callbacks = callbacks or []
-        self.max_steps = max_steps
-        # 允许从某个 episode 索引开始，用于简单的断点续训（基于日志的续跑）
-        self.start_episode: int = 0
+        self.max_steps = int(max_steps)
 
     def run(self, num_episodes: int) -> None:
-        for local_ep in range(num_episodes):
-            ep = self.start_episode + local_ep
+        for ep in range(num_episodes):
             state = self.env.reset()
             self.agent.reset()
 
             path = [state]
-            total_cost = 0.0
+            steps = 0
             success = False
 
             for _step_idx in range(self.max_steps):
@@ -57,24 +33,23 @@ class Trainer:
 
                 state = step_result.next_state
                 path.append(state)
-                total_cost += step_result.reward
+                steps += 1
 
                 if step_result.done:
-                    success = True
+                    # Success semantics is defined by physical info.
+                    success = bool(step_result.info.get("success", False))
                     break
 
             episode_result = EpisodeResult(
                 path=path,
-                cost=total_cost,
+                cost=float(steps),  # cost is irrelevant here; keep a consistent placeholder
                 success=success,
-                steps=len(path) - 1,
+                steps=steps,
             )
-
             self.agent.end_episode(episode_result)
 
-            if self.structure is not None:
-                self.structure.on_episode_end(episode_result, self.env)
-
-            for cb in self.callbacks:
-                cb.on_episode_end(ep, episode_result, self.structure)
+            outcome = (
+                "到了终点（success=True）" if success else "死在陷阱里（success=False）"
+            )
+            print(f"[episode {ep}] 跑了 {steps} 步，{outcome}")
 

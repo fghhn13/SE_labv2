@@ -19,6 +19,8 @@ env/
 
 # Cursor / 编辑器工作目录
 .cursor/
+.cursorrules
+agent-transcripts/
 
 # OS files
 .DS_Store
@@ -31,6 +33,11 @@ runs/
 
 # Experiment results (generated artifacts)
 lab_v2_results/
+
+# Raw events / intermediate artifacts (high frequency)
+*.jsonl
+summary.txt
+events_new.jsonl
 
 # Map files:
 # Only keep a single example map for reference; ignore the rest.

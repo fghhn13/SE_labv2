@@ -1,22 +1,14 @@
-## Docs 目录与导览
+## Docs 目录与导览（当前实现）
 
-本目录用于把散落在 `docs/` 下的文档集中管理，方便你/未来的自己快速定位。
+本目录只保留“当前实现已落地”的关键说明；历史/规划版文档已迁移到 `docs/version_past/`。
 
-### 快速入口
-- `docs/quickstart.md`：项目快速上手（规划版）
-- `docs/concepts.md`：核心概念术语表
-- `docs/architecture.md`：总体架构说明（规划版）
+### 当前必须读
 
-### 新增/扩展指南
-- `docs/adding_agent.md`：新增 Agent 的推荐流程
+- `docs/grid_map_module_today.md`：地图与环境层契约（Element 注册、.map 解析、step 物理语义）
+- `docs/trainer_listeners_reporters.md`：Trainer -> Listener -> Reporter 数据流闭环与 events.jsonl Data Contract
+- `docs/architecture.md`：当前实现的整体分层架构说明
 
-### 地图相关
-- `docs/map_rules_and_runner.md`：旧版地图运行器与设计规则（在演进中可对照更新）
-- `docs/manual_play_gui.md`：手动操控 GUI（外挂脚本）说明与使用方法
-- `docs/grid_map_module_today.md`：今天地图模块的实现说明（Element/注册/解析/环境 step 语义）
+### 历史说明
 
-### 项目计划与日志
-- `docs/project_plan.md`：Minimal Emergent Structure Lab 计划
-- `docs/log/`：按日期记录迭代过程与关键决策
-- `docs/architecture.md`、`docs/concepts.md` 等：用于对齐模块边界与术语
+- `docs/version_past/`：quickstart/concepts/adding_agent/manual_play/map_rules_and_runner/project_plan 旧版说明与迭代日志
 

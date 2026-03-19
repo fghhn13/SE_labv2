@@ -1,218 +1,96 @@
-## 架构说明（规划）
+## 架构说明（当前实现）
 
-本文件描述的是本仓库**目标架构设计**，用于指导后续实现与扩展。除非在代码中明确存在，否则以下内容均视为**规划中**。
+本文件描述当前（已落地）的最小可运行研究架构：把 2D 栅格任务切分为 **地图/环境层** 与 **训练数据流层**，训练数据流层采用：
+- Online 训练采样（Trainer 驱动 env-agent 交互）
+- Async Listener 异步落盘（写原始事件 jsonl）
+- Offline Reporter 离线聚合（读事件 jsonl 生成文本战报）
 
----
-
-### 总体设计原则
-
-- **Trainer 拥有 episode 循环控制权**：统一管理环境重置、step 推进、日志回调与结构更新。
-- **Agent 专注 step 级决策**：只根据观察与内部状态输出动作，尽量保持轻量与可替换。
-- **结构服务（`StructureService`）独立**：负责收集、更新和存储“内部结构”信息，不与具体 Agent 强耦合。
-- **环境与学习逻辑解耦**：Environment 只提供状态转移与奖励，不关心训练细节或结构表示。
-- **日志 / 可视化为旁路模块**：通过回调 / 钩子订阅事件，不影响核心逻辑。
-- **可扩展性优先**：方便新增 Agent、环境、结构表示与实验配置。
+地图与环境层的语义见 `docs/grid_map_module_today.md`。
+Trainer/Listener/Reporter 的事件契约见 `docs/trainer_listeners_reporters.md`。
 
 ---
 
-### 分层概览
+### 1. 模块分层与职责
 
-#### 1. `core`（核心基础层）
+#### 1.1 `envs`：环境层（物理裁判）
 
-- **角色**：
-  - 提供通用类型定义、接口协议和基础工具。
-  - 作为其他模块的“共享基础设施”。
-- **可能包含**：
-  - 通用配置读取与管理。
-  - 随机数种子管理。
-  - 通用数据结构（经验缓冲、路径表示、图结构等的抽象接口）。
-  - 公共协议（`Agent` 接口、`Environment` 接口、`StructureService` 接口、回调接口等）的定义。
+- `lab/envs/grid/grid_map.py`：`GridMap`，提供元素/数值编码查询与基础网格接口。
+- `lab/envs/grid/map_file_parser.py`：解析 `.map` 文件为元素网格。
+- `lab/envs/grid/environment.py`：`GridWorldEnvironment.step(action)`：
+  - 越界/不可通行保持原地并写 `info["blocked"]=True`
+  - 可通行则调用元素 `interact()`，以 `outcome["terminal"]` 决定 `done`
+  - 用 `outcome["success"]` 写入 `step_result.info["success"]`
 
-#### 2. `envs`（环境层）
+> 重要：当前物理层 reward 为占位值；训练模块的 success 语义来自 `info["success"]`。
 
-- **角色**：
-  - 提供具体任务环境实现，尤其是 2D 栅格最短路径任务。
-  - 将地图生成、状态转移、奖励函数封装在环境内部。
-- **边界**：
-  - **不包含任何学习逻辑**（如参数更新、策略优化等）。
-  - 通过统一接口与 `Trainer` 交互，例如 `reset()`、`step(action)`。
-- **子模块规划**：
-  - `grid/`：栅格地图环境与地图生成器。
-  - 未来可加入其他派生任务（如变化规则、噪声、动态障碍等）作为独立环境。
+#### 1.2 `agents`：智能体层（决策）
 
-#### 3. `agents`（智能体层）
+- `lab/agents/*`：遵循统一 `Agent` 协议：
+  - `select_action(state, env)`
+  - `observe(step_result)`
+  - `end_episode(episode_result)`
 
-- **角色**：
-  - 实现不同的决策策略 / 学习算法，通过统一 Agent 接口对外。
-- **边界**：
-  - 只根据输入（状态、结构信息等）输出动作或动作分布。
-  - 是否在内部更新参数由具体 Agent 决定，但其对外行为保持统一接口。
-- **设计方向**：
-  - 易于切换 / 对比不同 Agent（随机、贪心、结构驱动、神经网络等）。
-  - 可选择性地从 `StructureService` 读取结构性信息（例如宏、子目标）。
+Trainer 负责驱动循环，Agent 不参与训练控制流程。
 
-#### 4. `structure`（结构服务层）
+#### 1.3 `trainer`：训练数据流在线阶段（Online）
 
-- **角色**：
-  - 提供 `StructureService` 及相关结构数据结构，用于追踪和更新“涌现结构”。
-- **典型输入**：
-  - episode 中的轨迹（状态、动作、奖励）。
-  - 已找到的最短路径或高质量路径。
-  - 失败路径、探索记录等。
-- **典型输出（规划）**：
-  - 供可视化或导出的结构表示（路径集合、宏动作、子图等）。
-  - 可选：向 Agent 反馈的结构性特征或“候选宏”。
-- **边界**：
-  - 不直接控制训练流程，只通过接口被 `Trainer` 调用或订阅事件。
-  - 不应直接依赖某个具体 Agent 的实现细节（尽量使用通用接口）。
+- `lab/trainer/loop.py`：`BarebonesTrainer`
+  - 纯 episode loop + 每 episode 只打印成功/失败与步数
+  - 用于快速验证 success 语义与 step/done 对齐
+- `lab/trainer/standard_trainer.py`：`StandardTrainer`
+  - drives episode/step
+  - 每个 step/episode_end 广播事件给 `listeners`
+  - success 严格读取 `step_result.info["success"]`
+  - 不在主线程做 IO（IO 由 Listener 后台线程完成）
 
-#### 5. `trainer`（训练与采样层）
+#### 1.4 `listeners`：训练期间异步落盘（Async Logging）
 
-- **角色**：
-  - 作为**控制中心**，负责 episode 循环与 step 循环。
-  - 将 `envs`、`agents`、`structure`、`logging`、`viz` 串联起来。
-- **主要职责**：
-  - 创建 / 管理环境实例与 Agent。
-  - 控制 episode 重置与 step 推进。
-  - 收集并转发必要信息给 `StructureService`、日志和可视化模块。
-  - 提供统一的训练配置入口（步数、探索策略、评估频率等）。
-- **为什么由 Trainer 控制循环？**
-  - **清晰的单一控制点**：所有模块通过 Trainer 统一协调，便于插入回调和调试。
-  - **易于扩展实验逻辑**：可以很方便地加入 curriculum、评估阶段、early stopping 等策略。
-  - **解耦 Agent 与 Environment**：Agent 与 Environment 都不需要管理全局流程，只关注各自职责。
+- `lab/listeners/base.py`：`Listener` 协议（`on_step`/`on_episode_end`/`close`）
+- `lab/listeners/async_jsonl_listener.py`：`AsyncJsonlListener`
+  - 后台线程把事件写入 `events.jsonl`
+  - 主线程只做非阻塞入队（队列满时丢弃旧事件保护 FPS）
 
-#### 6. `logging`（日志与指标层）
+#### 1.5 `reporters`：训练结束后的离线聚合（Offline Reporting）
 
-- **角色**：
-  - 记录训练过程中的关键事件和指标。
-- **形式**（规划）：
-  - 文本日志、标量指标（如平均回报、成功率、路径长度）。
-  - 将来可接入更复杂的记录后端（如 CSV、TensorBoard、数据库等）。
-- **集成方式**：
-  - 以回调或观察者模式挂载到 `Trainer` 上，在特定事件（如每个 step / episode / 评估阶段）被触发。
-
-#### 7. `viz`（可视化层）
-
-- **角色**：
-  - 对环境状态、路径、结构信息和训练指标进行可视化。
-- **示例目标（规划）**：
-  - 绘制栅格地图与路径。
-  - 展示结构图（如宏图、子目标连通图）。
-  - 绘制学习曲线（成功率 / 路径长度随训练进展变化）。
-- **边界**：
-  - 不参与决策与训练，只消费数据。
-  - 通过 `Trainer` 提供的回调、事件或数据导出接口获取信息。
-
-#### 8. `cli`（命令行入口层）
-
-- **角色**：
-  - 为用户 / 研究者提供统一的命令行入口，用于运行预定义实验。
-- **规划内容**：
-  - 简单命令，如 `run_simple_grid_experiment`，封装常用参数与默认配置。
-  - 支持通过命令行参数或配置文件选择：
-    - 环境类型 / 地图配置。
-    - Agent 类型。
-    - 训练步数 / episode 数。
-    - 日志与可视化选项。
+- `lab/reporters/text_summary_reporter.py`：`TextSummaryReporter`
+  - 读取 `events.jsonl`
+  - 聚合 `event_type == "episode_end"` 的 `episode/steps/success`
+  - 输出到终端，并可选写入 `summary.txt`
 
 ---
 
-### 数据流（文本示意图）
+### 2. Online -> Async Logging -> Offline Reporting 数据流
 
-以下为一个典型训练过程的数据流（规划）：
+典型数据流：
 
-```
-        +-----------------+
-        |      CLI        |
-        | (启动配置与命令) |
-        +--------+--------+
-                 |
-                 v
-           +-----+------+
-           |  Trainer   |
-           +-----+------+
-                 |
-   +-------------+-------------+
-   |             |             |
-   v             v             v
-+------+    +---------+    +-----------+
-| Env  |    |  Agent  |    | Structure |
-| (envs)|   |(agents) |    | Service   |
-+--+---+    +----+----+    |(structure)|
-   |           ^           +-----------+
-   |           |
-   v           |
- 环境状态/奖励  动作决策
-
-           +---------------------+
-           |  Logging / Metrics |
-           |      (logging)     |
-           +----------+---------+
-                      |
-                      v
-                 +----+----+
-                 |   Viz   |
-                 |  (viz)  |
-                 +---------+
-```
-
-**解释**：
-
-- `CLI` 提供用户入口，构建 `Trainer` 和相关组件。
-- `Trainer` 控制 episode 和 step 循环：
-  - 从 `Env` 获取状态、奖励等；
-  - 将状态信息传给 `Agent`，获取动作；
-  - 将轨迹 / 统计信息传给 `StructureService`；
-  - 将关键事件发给 `logging` / `viz`。
-- `StructureService` 被动接收信息并更新内部结构；可选地将结构摘要反馈给 `Agent` 或导出给 `viz`。
+1. `python -m lab.cli.run_standard_trainer ...`
+2. `StandardTrainer`：
+   - 调用 `env.reset()`
+   - `agent.select_action(state, env)` -> `env.step(action)` -> `agent.observe(step_result)`
+   - 广播事件：`event_type="step"` 与 `event_type="episode_end"`
+3. `AsyncJsonlListener`：异步把事件写入 `events.jsonl`
+4. `python -m lab.cli.run_reporter ...`
+5. `TextSummaryReporter`：离线读取并生成文本战报
 
 ---
 
-### Trainer 控制循环、Agent 保持轻量的原因
+### 3. 事件 Data Contract（强制约定）
 
-- **Trainer 控制循环的好处**：
-  - **统一实验逻辑**：如探索与利用的策略切换、评估模式插入、早停、curriculum 等都可集中在 Trainer 中实现。
-  - **多 Agent / 多环境支持**：易于扩展到并行环境、多 Agent 交互等复杂设置。
-  - **方便调试**：所有步骤在一个明确的控制流程中，可插入断点、日志与性能分析。
-
-- **Agent 保持轻量的原因**：
-  - 降低耦合度，使得切换 Agent 变得简单（从随机策略到复杂模型不影响 Trainer 与 Env）。
-  - 便于实现一系列从“无结构”到“强结构感知”的对比实验。
-  - 让 Agent 更像一个可替换的“决策黑盒”，同时为结构服务提供一个稳定的交互接口。
+事件 schema 与字段约定见 `docs/trainer_listeners_reporters.md`，当前核心包括：
+- `schema_version`：如 `"1.0"`
+- `run_id`：同一训练 run 的 UUID（全文件共享）
+- `event_type`：`"step"` / `"episode_end"`
+- `episode_end` 行必须包含：`episode`、`steps`、`success`
 
 ---
 
-### StructureService 的角色与边界
+### 4. 推荐的最小验证/使用路径
 
-- **核心角色**：
-  - 被设计为**最小但可扩展的结构管理中心**。
-  - 接收来自 Trainer 的轨迹、成功路径、失败案例等信息。
-  - 在此基础上构建更高层次的结构抽象（规划阶段），例如：
-    - 常见路径的聚类与归纳；
-    - 子目标与关键节点的识别；
-    - 宏动作（macro）的候选提取。
+1. 先跑 Barebones 验证 success 语义：
+   - `python -m lab.cli.run_barebones --episodes 5 --max-steps 50`
+2. 再跑 StandardTrainer 生成事件：
+   - `python -m lab.cli.run_standard_trainer --episodes 10 --output-jsonl lab_v2_results/standard/events.jsonl`
+3. 最后用 Reporter 生成战报：
+   - `python -m lab.cli.run_reporter --events-jsonl lab_v2_results/standard/events.jsonl --summary-out lab_v2_results/standard/summary.txt`
 
-- **与其他模块的关系**：
-  - **与 Trainer**：Trainer 在合适的时间点（如 episode 结束）调用 `StructureService` 的更新接口。
-  - **与 Agent**：Agent 可选择性地从 `StructureService` 查询结构摘要或特征，但不依赖其内部细节。
-  - **与 logging / viz**：可通过导出结构数据，交给日志与可视化模块显示。
-
-- **边界控制**：
-  - 不直接做训练控制决策（例如不决定何时结束训练）。
-  - 不要求使用特定的模型或学习算法，只关注“结构层”的信息组织。
-
----
-
-### 当前实现状态说明
-
-截至当前（文档创建时）：
-
-- 本文件描述的是**目标架构与设计意图**。
-- 具体目录、模块与接口可能尚未创建或尚未稳定。
-
-在开始实现前，建议：
-
-- 从 `trainer`、`envs/grid`、`agents` 和 `structure` 的最小骨架开始；
-- 先实现一个“粗糙但能跑通”的最简循环；
-- 再逐步引入 logging、viz 与更复杂的结构表示。
 

@@ -15,6 +15,20 @@ def register(name: str, builder: AgentBuilder) -> None:
 def create(name: str, env: Environment | None = None, **kwargs: Any) -> Agent:
     """
     env is accepted here for flexibility, but builders are free to ignore it.
+
+    Contract:
+    - `name` must be registered via `register(name, builder)`.
+    - `env` is optional and only used if the registered agent builder
+      accepts an `env` keyword (some agents may read goal/state information
+      from certain environment types).
+    - `**kwargs` are agent-specific and forwarded to the builder.
+
+    Built-in examples:
+    - `name="random"`:
+      - optional `seed` (int | None)
+    - `name="greedy"`:
+      - optional `seed` (int | None)
+      - optional `epsilon` (float; default `0.0`)
     """
     if name not in _REGISTRY:
         raise ValueError(f"Unknown agent: {name}")

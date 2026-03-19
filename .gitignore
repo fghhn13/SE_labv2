@@ -39,6 +39,10 @@ lab_v2_results/
 summary.txt
 events_new.jsonl
 
+# Agents: 只保留一个示例 agent（template_agent.py），其余不上传
+lab/agents/random_agent.py
+lab/agents/greedy_agent.py
+
 # Map files:
 # Only keep a single example map for reference; ignore the rest.
 maps/*

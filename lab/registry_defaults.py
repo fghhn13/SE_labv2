@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from lab.agents import registry as agent_registry
-from lab.agents.greedy_agent import GreedyAgent
-from lab.agents.random_agent import RandomAgent
+from lab.agents.template_agent import TemplateAgent
 from lab.envs import registry as env_registry
 from lab.envs.grid.environment import GridWorldEnvironment
 from lab.envs.grid.maps import get_map, register_builtin_maps
@@ -26,16 +25,8 @@ def register_all_defaults() -> None:
 
     env_registry.register("grid_basic", build_grid_env)
 
-    def build_random_agent(**kwargs: Any) -> RandomAgent:
-        return RandomAgent(seed=kwargs.get("seed"))
+    def build_template_agent(**kwargs: Any) -> TemplateAgent:
+        return TemplateAgent(seed=kwargs.get("seed"))
 
-    agent_registry.register("random", build_random_agent)
-
-    def build_greedy_agent(**kwargs: Any) -> GreedyAgent:
-        return GreedyAgent(
-            seed=kwargs.get("seed"),
-            epsilon=kwargs.get("epsilon", 0.0),
-        )
-
-    agent_registry.register("greedy", build_greedy_agent)
+    agent_registry.register("template", build_template_agent)
 

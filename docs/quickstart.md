@@ -10,7 +10,7 @@
 {
   "episodes": 5,
   "env": { "name": "grid_basic", "kwargs": { "map_name": "open_5x5" } },
-  "agent": { "name": "greedy", "kwargs": { "seed": 1, "epsilon": 0.0 } },
+  "agent": { "name": "template", "kwargs": { "seed": 1 } },
   "trainer": { "name": "standard", "kwargs": { "max_steps": 20, "record_path": false } },
   "listeners": [
     { "name": "async_jsonl", "kwargs": { "output_file": "events.jsonl" } }

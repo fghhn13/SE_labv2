@@ -29,7 +29,7 @@
     - Immediate Termination：`done` 来自元素交互返回的 `terminal`。
     - 元素交互的成功标记写入 `step_result.info["success"]`（Trap => false，Goal => true）。
     - 为保持轻量兼容，当前环境返回的 `StepResult.reward` 为占位值（物理层暂不计算 reward）。
-  - `RandomAgent` / `GreedyAgent`：随机策略与基于曼哈顿距离的贪心策略（支持 `epsilon` 探索）。
+  - `TemplateAgent`（示例）：最小决策逻辑，可作为新 agent 的复制起点。
   - **训练数据闭环（当前默认链路）**：
     - `lab/trainer/loop.py`：`BarebonesTrainer`（最小 episode loop + 终端打印）。
     - `lab/trainer/standard_trainer.py`：`StandardTrainer`（广播事件给 listeners，success 严格来自 `step_result.info["success"]`）。
@@ -58,7 +58,7 @@
 - `lab/envs/`：
   - `grid/`：2D 栅格环境（`GridMap`、`GridWorldEnvironment`、`maps.py`）。
 - `lab/agents/`：
-  - `random_agent.py`、`greedy_agent.py`、`base.py`、`registry.py` 等。
+  - `template_agent.py`（示例）、`base.py`、`registry.py` 等。
 - `lab/listeners/`：
   - `async_jsonl_listener.py`：异步写入 `events.jsonl`。
 - `lab/reporters/`：
@@ -135,13 +135,13 @@ pip install -e ".[viz]"    # 如需画图（matplotlib + pandas）
 - **1) 最小 loop 验证（BarebonesTrainer）**
 
 ```bash
-python -m lab.cli.run_barebones --episodes 5 --max-steps 50 --map-name level_01_trap_maze --agent-name greedy --epsilon 0.1
+python -m lab.cli.run_barebones --episodes 5 --max-steps 50 --map-name level_01_trap_maze --agent-name template
 ```
 
 - **2) 生成事件落盘（events.jsonl）**
 
 ```bash
-python -m lab.cli.run_standard_trainer --episodes 10 --max-steps 50 --map-name level_01_trap_maze --agent-name greedy --epsilon 0.1 --output-jsonl lab_v2_results/standard/events.jsonl
+python -m lab.cli.run_standard_trainer --episodes 10 --max-steps 50 --map-name level_01_trap_maze --agent-name template --output-jsonl lab_v2_results/standard/events.jsonl
 ```
 
 - **3) 离线生成文字战报（summary.txt）**

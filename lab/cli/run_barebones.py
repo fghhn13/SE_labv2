@@ -15,7 +15,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--map-name", type=str, default="open_5x5")
     parser.add_argument("--env-name", type=str, default="grid_basic")
 
-    parser.add_argument("--agent-name", type=str, default="greedy")
+    parser.add_argument("--agent-name", type=str, default="template")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--epsilon", type=float, default=0.0)
 
